@@ -19,7 +19,7 @@ Dieses PowerShell-Skript erstellt automatische Backups aller E-Mail-Konten aus M
 ### Erforderlich:
 1. **Microsoft Outlook Desktop** (NICHT Outlook.com Web)
    - Microsoft 365 Outlook ODER
-   - Outlook 2019/2021/2024
+   - Outlook 2016/2019/2021/2024
   
 2. **Windows 10/11**
  
@@ -368,5 +368,7 @@ Frei verwendbar, keine Garantie.
 ---
 
 **Version:** 1.0  
+**Erstellt:** Januar 2026  
+**Getestet mit:** Outlook 2016, Microsoft 365 Outlook, Windows 11
 **Erstellt:** Januar 2026  
 **Getestet mit:** Microsoft 365 Outlook, Windows 11
