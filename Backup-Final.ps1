@@ -1,12 +1,13 @@
 # ============================================================
 # OUTLOOK BACKUP - Alle E-Mail-Konten sichern
+# Kompatibel mit: Outlook 2016, 2019, 2021, Microsoft 365
 # ============================================================
 # Erstellt: Januar 2026
 # Funktion: Sichert ALLE Outlook-Konten nach Jahr/Quartal
 # Format: MSG-Dateien (mit Outlook öffenbar)
 # ============================================================
 
-# Basis-Backup-Pfad (Google Drive)
+# Basis-Backup-Pfad (anpassen!)
 $BaseBackupPath = "G:\Meine Ablage\Outlook Archiv"
 
 # Aktuelles Jahr und Quartal
@@ -19,6 +20,7 @@ $BackupPath = Join-Path $BaseBackupPath "$Year\Q$Quarter"
 
 Write-Host "" -ForegroundColor Cyan
 Write-Host "=== OUTLOOK BACKUP ===" -ForegroundColor Cyan
+Write-Host "Outlook Version: 2016+ kompatibel" -ForegroundColor Gray
 Write-Host "Jahr: $Year | Quartal: Q$Quarter" -ForegroundColor White
 Write-Host "Ziel: $BackupPath" -ForegroundColor White
 Write-Host "" -ForegroundColor Cyan
@@ -30,11 +32,14 @@ if (-not (Test-Path $BackupPath)) {
 }
 
 try {
-    # Outlook-Verbindung
+    # Outlook-Verbindung (COM-Schnittstelle - kompatibel ab Outlook 2007)
+    Write-Host "[*] Verbinde zu Outlook..." -ForegroundColor Yellow
     $outlook = New-Object -ComObject Outlook.Application
     $namespace = $outlook.GetNamespace("MAPI")
     
-    Write-Host "[+] Outlook verbunden" -ForegroundColor Green
+    # Outlook-Version auslesen (optional)
+    $outlookVersion = $outlook.Version
+    Write-Host "[+] Outlook verbunden (Version: $outlookVersion)" -ForegroundColor Green
     Write-Host "" -ForegroundColor White
     
     # Durchlaufe ALLE E-Mail-Konten
@@ -62,8 +67,8 @@ try {
             # Ordnernamen bereinigen
             $folderName = $folderName -replace '[<>:"/\\|?*]', '_'
             
-            # Überspringe System-Ordner
-            if ($folder.Name -in @('Calendar','Contacts','Tasks','Notes','Journal')) {
+            # Überspringe System-Ordner (Deutsch & Englisch)
+            if ($folder.Name -in @('Calendar','Contacts','Tasks','Notes','Journal','Kalender','Kontakte','Aufgaben','Notizen')) {
                 continue
             }
             
@@ -80,7 +85,7 @@ try {
             # Sichere alle E-Mails im Ordner
             foreach ($mail in $folder.Items) {
                 try {
-                    # Nur E-Mails (MailItem)
+                    # Nur E-Mails (MailItem = Class 43)
                     if ($mail.Class -eq 43) {
                         # Betreff bereinigen
                         $subject = if ($mail.Subject) { 
@@ -94,19 +99,29 @@ try {
                         $timestamp = $receivedTime.ToString("yyyy-MM-dd_HHmm")
                         $fileName = "${timestamp}_${subject}.msg"
                         
-                        # Kürze zu lange Dateinamen
+                        # Kürze zu lange Dateinamen (Windows-Limit)
                         if ($fileName.Length -gt 200) {
                             $fileName = $fileName.Substring(0, 197) + ".msg"
                         }
                         
                         $filePath = Join-Path $folderPath $fileName
                         
-                        # Speichere als MSG
-                        $mail.SaveAs($filePath, 3)  # 3 = olMSG
+                        # Prüfe ob Datei bereits existiert (Duplikat-Schutz)
+                        $counter = 1
+                        while (Test-Path $filePath) {
+                            $filePathBase = $filePath -replace '\.msg$', ''
+                            $filePath = "${filePathBase}_${counter}.msg"
+                            $counter++
+                            if ($counter -gt 99) { break }
+                        }
+                        
+                        # Speichere als MSG (Format 3 = olMSG)
+                        $mail.SaveAs($filePath, 3)
                         $emailCount++
                     }
                 } catch {
-                    # Fehler überspringen
+                    # Fehler bei einzelner E-Mail überspringen
+                    # (z.B. beschädigte/verschlüsselte Mails)
                 }
             }
             
@@ -121,8 +136,13 @@ try {
     
 } catch {
     Write-Host "[!] Fehler: $_" -ForegroundColor Red
+    Write-Host "" -ForegroundColor White
+    Write-Host "Mögliche Ursachen:" -ForegroundColor Yellow
+    Write-Host "- Outlook ist nicht installiert" -ForegroundColor Gray
+    Write-Host "- Outlook muss mindestens einmal manuell geöffnet worden sein" -ForegroundColor Gray
+    Write-Host "- Keine E-Mail-Konten in Outlook eingerichtet" -ForegroundColor Gray
 } finally {
-    # Outlook-Objekt freigeben
+    # Outlook-Objekt freigeben (wichtig für saubere COM-Bereinigung)
     if ($outlook) {
         [System.Runtime.Interopservices.Marshal]::ReleaseComObject($outlook) | Out-Null
     }
